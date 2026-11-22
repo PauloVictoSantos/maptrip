@@ -30,6 +30,7 @@ type Profile = {
   followers_count: number;
   following_count: number;
   is_following: boolean;
+  follows_you?: boolean;
   is_own_profile: boolean;
 };
 
