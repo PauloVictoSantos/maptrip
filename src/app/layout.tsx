@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "MapTrip - Rede Social de Viagens",
-  description:
-    "Compartilhe seus passeios, descubra novos lugares e explore o mundo através de um mapa interativo.",
-  keywords: ["viagens", "mapa", "rede social", "passeios", "turismo"],
-};
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export default function RootLayout({
   children,
@@ -14,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={jakarta.variable}>
       <body className="min-h-screen">{children}</body>
     </html>
   );
