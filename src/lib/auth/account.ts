@@ -16,12 +16,13 @@ export function ownProfile(u: UserDoc) {
     avatar_url: u.avatar_url,
     city: u.city,
     default_visibility: u.default_visibility ?? "public",
+    has_password: !!u.password_hash,
     created_at: u.created_at.toISOString(),
   };
 }
 
 /** Profile as anyone sees it. */
 export function publicProfile(u: UserDoc) {
-  const { email: _email, default_visibility: _dv, ...rest } = ownProfile(u);
+  const { email: _email, default_visibility: _dv, has_password: _hp, ...rest } = ownProfile(u);
   return rest;
 }

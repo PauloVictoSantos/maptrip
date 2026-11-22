@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Download, Globe, Loader2, Lock, Users } from "lucide-react";
 import { useAuthContext } from "@/components/providers/AuthProvider";
+import { PasswordStrength } from "@/components/auth/PasswordStrength";
+import { passwordStrength } from "@/lib/password";
 
 /** Same rule as MIN_PASSWORD in lib/auth/account.ts (server-only). */
 const MIN_PASSWORD_LENGTH = 8;
@@ -84,7 +86,7 @@ export default function SettingsPage() {
             <AccountSection profile={profile} onSaved={refresh} />
             <PrivacySection initial={profile.default_visibility ?? "public"} onSaved={refresh} />
             <PasswordSection />
-            <DataSection username={profile.username} />
+            <DataSection username={profile.username} hasPassword={profile.has_password !== false} />
           </main>
         </div>
       </div>
@@ -280,19 +282,27 @@ function PasswordSection() {
             minLength={MIN_PASSWORD_LENGTH}
             value={form.next}
             onChange={(e) => setForm({ ...form, next: e.target.value })}
+            aria-describedby="troca-forca"
             className={field}
           />
         </label>
+        <div className="sm:col-span-3 sm:order-last">
+          <PasswordStrength password={form.next} id="troca-forca" />
+        </div>
         <label className="text-sm font-bold">
           Confirmar
           <input type="password" autoComplete="new-password" required value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} className={field} />
         </label>
         <div className="flex items-center gap-3 sm:col-span-3">
-          <button type="submit" disabled={saving} className="flex h-11 items-center gap-2 rounded-full bg-mt-teal px-6 text-sm font-bold text-white hover:bg-mt-teal-dark disabled:opacity-60">
+          <button
+            type="submit"
+            disabled={saving || passwordStrength(form.next).level !== "forte" || form.next !== form.confirm}
+            className="flex h-11 items-center gap-2 rounded-full bg-mt-teal px-6 text-sm font-bold text-white hover:bg-mt-teal-dark disabled:opacity-60"
+          >
             {saving && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
             Trocar senha
           </button>
-          <span className="text-xs text-mt-muted">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</span>
+          <span className="text-xs text-mt-muted">A nova senha precisa cumprir todos os critérios abaixo.</span>
           <Status {...msg} />
         </div>
       </form>
@@ -300,7 +310,7 @@ function PasswordSection() {
   );
 }
 
-function DataSection({ username }: { username: string }) {
+function DataSection({ username, hasPassword }: { username: string; hasPassword: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
   const [typed, setTyped] = useState("");
@@ -312,7 +322,7 @@ function DataSection({ username }: { username: string }) {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/users/me", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      const res = await fetch("/api/users/me", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, confirm: typed }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Não foi possível excluir a conta.");
       window.location.href = "/";
@@ -355,10 +365,12 @@ function DataSection({ username }: { username: string }) {
               Digite <span className="font-mono">{username}</span> para confirmar
               <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={field} />
             </label>
-            <label className="text-sm font-bold">
-              Sua senha
-              <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
-            </label>
+            {hasPassword && (
+              <label className="text-sm font-bold">
+                Sua senha
+                <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
+              </label>
+            )}
           </div>
           {error && (
             <p role="alert" className="mt-2 text-sm font-semibold text-[#B42323]">
@@ -368,7 +380,7 @@ function DataSection({ username }: { username: string }) {
           <div className="mt-3 flex gap-2">
             <button
               type="submit"
-              disabled={busy || typed.trim().toLowerCase() !== username || !password}
+              disabled={busy || typed.trim().toLowerCase() !== username || (hasPassword && !password)}
               className="flex h-11 items-center gap-2 rounded-full bg-[#C2362F] px-5 text-sm font-bold text-white disabled:opacity-50"
             >
               {busy && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}

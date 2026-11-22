@@ -28,6 +28,7 @@ export type User = {
   avatar_url: string | null;
   city: string | null;
   default_visibility?: "public" | "friends" | "private";
+  has_password?: boolean;
   created_at: string;
 };
 

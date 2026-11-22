@@ -18,8 +18,10 @@ const cookieBase = {
   path: "/",
 };
 
-export async function setSessionCookie(res: NextResponse, userId: string) {
-  res.cookies.set(SESSION_COOKIE, await signSession(userId), { ...cookieBase, maxAge: SESSION_DAYS * 86400 });
+/** remember=false → browser-session cookie and a short token (see SHORT_SESSION_HOURS). */
+export async function setSessionCookie(res: NextResponse, userId: string, remember = true) {
+  const token = await signSession(userId, remember);
+  res.cookies.set(SESSION_COOKIE, token, remember ? { ...cookieBase, maxAge: SESSION_DAYS * 86400 } : cookieBase);
 }
 
 export function clearSessionCookie(res: NextResponse) {

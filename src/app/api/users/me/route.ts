@@ -77,12 +77,16 @@ export async function DELETE(request: NextRequest) {
   if (!rateLimit(`delete-account:${viewer.toHexString()}:${clientIp(request.headers)}`, 5, 15 * 60 * 1000)) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde alguns minutos." }, { status: 429 });
   }
-  const { password } = await request.json().catch(() => ({}));
+  const { password, confirm } = await request.json().catch(() => ({}));
   const { users, posts, comments, likes, follows, placeStatus, trips, media, db } = await getCollections();
   const user = await users.findOne({ _id: viewer });
   if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
-  if (typeof password !== "string" || !(await bcrypt.compare(password, user.password_hash))) {
-    return NextResponse.json({ error: "Senha incorreta." }, { status: 403 });
+  // Accounts created with Google have no password: they confirm by typing the @username.
+  const confirmed = user.password_hash
+    ? typeof password === "string" && (await bcrypt.compare(password, user.password_hash))
+    : typeof confirm === "string" && confirm.trim().toLowerCase() === user.username;
+  if (!confirmed) {
+    return NextResponse.json({ error: user.password_hash ? "Senha incorreta." : "Confirmação incorreta." }, { status: 403 });
   }
 
   // Interactions on other people's visits: keep their counters right.

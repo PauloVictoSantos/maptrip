@@ -4,6 +4,7 @@ import type {
   CommentDoc,
   FollowDoc,
   LikeDoc,
+  PasswordResetDoc,
   PlaceDoc,
   PlaceStatusDoc,
   PostDoc,
@@ -32,6 +33,12 @@ async function ensureIndexes(db: Db) {
     db.collection("users").createIndexes([
       { key: { email: 1 }, unique: true },
       { key: { username: 1 }, unique: true },
+      { key: { google_sub: 1 }, unique: true, partialFilterExpression: { google_sub: { $type: "string" } } },
+    ]),
+    db.collection("password_resets").createIndexes([
+      { key: { token_hash: 1 }, unique: true },
+      { key: { user_id: 1 } },
+      { key: { expires_at: 1 }, expireAfterSeconds: 0 },
     ]),
     db.collection("posts").createIndexes([
       { key: { location: "2dsphere" } },
@@ -82,6 +89,7 @@ export async function getCollections() {
     places: db.collection<PlaceDoc>("places"),
     placeStatus: db.collection<PlaceStatusDoc>("place_status"),
     trips: db.collection<TripDoc>("trips"),
+    passwordResets: db.collection<PasswordResetDoc>("password_resets"),
     media: new GridFSBucket(db, { bucketName: "media" }),
   };
 }

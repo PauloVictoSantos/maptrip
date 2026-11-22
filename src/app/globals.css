@@ -206,3 +206,13 @@
     transition: none;
   }
 }
+
+/* Auth screens: soft enter animation when switching Entrar / Cadastrar / Redefinir. */
+@keyframes maptrip-auth-swap {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.auth-swap { animation: maptrip-auth-swap 280ms cubic-bezier(0.2, 0, 0, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-swap { animation: none; }
+}

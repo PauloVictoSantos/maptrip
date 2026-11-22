@@ -7,7 +7,8 @@ export type GeoPoint = { type: "Point"; coordinates: [lng: number, lat: number] 
 export type UserDoc = {
   _id: ObjectId;
   email: string; // lowercase
-  password_hash: string;
+  password_hash: string; // "" for accounts created with Google that never set a password
+  google_sub?: string; // Google account id, when linked
   username: string; // lowercase
   display_name: string | null;
   bio: string | null;
@@ -35,6 +36,15 @@ export type PostDoc = {
   answers: Record<string, string>; // questionnaire (lib/questions.ts)
   likes_count: number;
   comments_count: number;
+  created_at: Date;
+};
+
+export type PasswordResetDoc = {
+  _id: ObjectId;
+  user_id: ObjectId;
+  token_hash: string; // sha256 of the token sent by email (the token itself is never stored)
+  expires_at: Date; // TTL index removes it
+  used_at: Date | null;
   created_at: Date;
 };
 

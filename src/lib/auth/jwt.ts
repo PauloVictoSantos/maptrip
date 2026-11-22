@@ -12,12 +12,15 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function signSession(userId: string): Promise<string> {
+/** Session length without "Lembrar de mim" (the cookie also dies with the browser). */
+export const SHORT_SESSION_HOURS = 12;
+
+export async function signSession(userId: string, remember = true): Promise<string> {
   return new SignJWT({})
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_DAYS}d`)
+    .setExpirationTime(remember ? `${SESSION_DAYS}d` : `${SHORT_SESSION_HOURS}h`)
     .sign(secretKey());
 }
 
