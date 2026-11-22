@@ -7,6 +7,7 @@ import type {
   PlaceDoc,
   PlaceStatusDoc,
   PostDoc,
+  TripDoc,
   UserDoc,
 } from "./types";
 
@@ -53,6 +54,8 @@ async function ensureIndexes(db: Db) {
       { key: { user_id: 1, place_id: 1 }, unique: true },
       { key: { user_id: 1, status: 1, updated_at: -1 } },
     ]),
+    db.collection("trips").createIndex({ members: 1, start_date: -1 }),
+    db.collection("comments").createIndex({ user_id: 1, created_at: -1 }),
   ]);
 }
 
@@ -78,6 +81,7 @@ export async function getCollections() {
     follows: db.collection<FollowDoc>("follows"),
     places: db.collection<PlaceDoc>("places"),
     placeStatus: db.collection<PlaceStatusDoc>("place_status"),
+    trips: db.collection<TripDoc>("trips"),
     media: new GridFSBucket(db, { bucketName: "media" }),
   };
 }

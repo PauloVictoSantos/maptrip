@@ -5,7 +5,12 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Award,
   BedDouble,
+  Compass,
+  Luggage,
+  Settings,
+  Trophy,
   Bookmark,
   Camera,
   CheckCircle2,
@@ -262,7 +267,12 @@ export default function FeedPage() {
     { href: "/buscar", label: "Buscar lugares", icon: Search },
     { href: "/quero-visitar", label: "Quero visitar", icon: Bookmark },
     { href: "/ja-visitei", label: "Já visitei", icon: CheckCircle2 },
+    { href: "/viagens", label: "Viagens", icon: Luggage },
+    { href: "/destino", label: "Destinos", icon: Compass },
+    { href: "/conquistas", label: "Conquistas", icon: Award },
+    { href: "/ranking", label: "Ranking", icon: Trophy },
     ...(profile ? [{ href: `/profile/${profile.username}`, label: "Perfil", icon: User }] : []),
+    { href: "/configuracoes", label: "Configurações", icon: Settings },
   ];
 
   return (

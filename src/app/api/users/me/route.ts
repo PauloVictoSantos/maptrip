@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import type { ObjectId } from "mongodb";
 import { getCollections, toObjectId } from "@/lib/db/mongo";
+import { clearSessionCookie, getViewerId } from "@/lib/auth/session";
+import { ownProfile } from "@/lib/auth/account";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import type { Visibility } from "@/lib/db/types";
 
 const MEDIA_URL = /^\/api\/media\/([a-f0-9]{24})$/;
-import { getViewerId } from "@/lib/auth/session";
-import { ownProfile } from "@/lib/auth/account";
+const VISIBILITIES: Visibility[] = ["public", "friends", "private"];
 
-// PATCH /api/users/me { display_name?, bio?, city?, avatar_url? }
+// PATCH /api/users/me { display_name?, bio?, city?, avatar_url?, default_visibility? }
 export async function PATCH(request: NextRequest) {
   const viewer = await getViewerId();
   if (!viewer) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -22,6 +26,12 @@ export async function PATCH(request: NextRequest) {
       }
       update[key] = value || null;
     }
+  }
+  if ("default_visibility" in body) {
+    if (!VISIBILITIES.includes(body.default_visibility)) {
+      return NextResponse.json({ error: "Visibilidade inválida." }, { status: 400 });
+    }
+    update.default_visibility = body.default_visibility;
   }
   const { users, media } = await getCollections();
 
@@ -58,4 +68,56 @@ export async function PATCH(request: NextRequest) {
 
   const user = { ...before, ...update, updated_at: new Date() } as typeof before;
   return NextResponse.json({ profile: ownProfile(user) });
+}
+
+// DELETE /api/users/me { password } — permanently deletes the account and everything it created.
+export async function DELETE(request: NextRequest) {
+  const viewer = await getViewerId();
+  if (!viewer) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (!rateLimit(`delete-account:${viewer.toHexString()}:${clientIp(request.headers)}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde alguns minutos." }, { status: 429 });
+  }
+  const { password } = await request.json().catch(() => ({}));
+  const { users, posts, comments, likes, follows, placeStatus, trips, media, db } = await getCollections();
+  const user = await users.findOne({ _id: viewer });
+  if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+  if (typeof password !== "string" || !(await bcrypt.compare(password, user.password_hash))) {
+    return NextResponse.json({ error: "Senha incorreta." }, { status: 403 });
+  }
+
+  // Interactions on other people's visits: keep their counters right.
+  const myComments = await comments.find({ user_id: viewer }, { projection: { post_id: 1 } }).toArray();
+  const myLikes = await likes.find({ user_id: viewer }, { projection: { post_id: 1 } }).toArray();
+  const commentCounts = new Map<string, { id: ObjectId; n: number }>();
+  for (const c of myComments) {
+    const e = commentCounts.get(c.post_id.toHexString()) ?? { id: c.post_id, n: 0 };
+    e.n++;
+    commentCounts.set(c.post_id.toHexString(), e);
+  }
+  const ops = [
+    ...[...commentCounts.values()].map((e) => ({ updateOne: { filter: { _id: e.id }, update: { $inc: { comments_count: -e.n } } } })),
+    ...myLikes.map((l) => ({ updateOne: { filter: { _id: l.post_id }, update: { $inc: { likes_count: -1 } } } })),
+  ];
+  if (ops.length) await posts.bulkWrite(ops, { ordered: false });
+
+  // Own visits and what hangs off them.
+  const myPostIds = (await posts.find({ user_id: viewer }, { projection: { _id: 1 } }).toArray()).map((p) => p._id);
+  await Promise.all([
+    comments.deleteMany({ $or: [{ user_id: viewer }, { post_id: { $in: myPostIds } }] }),
+    likes.deleteMany({ $or: [{ user_id: viewer }, { post_id: { $in: myPostIds } }] }),
+    posts.deleteMany({ user_id: viewer }),
+    follows.deleteMany({ $or: [{ follower_id: viewer }, { following_id: viewer }] }),
+    placeStatus.deleteMany({ user_id: viewer }),
+    trips.deleteMany({ owner_id: viewer }),
+    trips.updateMany({ members: viewer }, { $pull: { members: viewer } }),
+  ]);
+
+  // Every uploaded file (visit photos and avatars).
+  const files = await db.collection("media.files").find({ "metadata.owner": viewer }, { projection: { _id: 1 } }).toArray();
+  for (const file of files) await media.delete(file._id as ObjectId).catch(() => undefined);
+
+  await users.deleteOne({ _id: viewer });
+  const res = NextResponse.json({ success: true });
+  clearSessionCookie(res);
+  return res;
 }

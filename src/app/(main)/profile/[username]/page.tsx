@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { Accessibility, Camera, ImagePlus, Landmark, Loader2, Map as MapIcon, Share2, Trees, Utensils, X } from "lucide-react";
+import { ImagePlus, Loader2, Share2, X } from "lucide-react";
+import { computeAchievements, RARITY, RARITY_ORDER } from "@/lib/achievements";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 import { CATEGORY_GROUPS, GROUP_ORDER, formatRatingBR, groupFor, type CategoryGroup } from "@/components/map/categories";
@@ -88,16 +89,11 @@ export default function ProfilePage() {
       byGroup[g] = (byGroup[g] ?? 0) + 1;
     }
     const points = list.reduce((s, v) => s + v.points, 0);
-    const withPhotos = list.filter((v) => v.photos.length > 0).length;
-    const accessibility = list.filter((v) => v.answered.includes("acessibilidade")).length;
-
-    const badges: { label: string; icon: typeof Landmark; bg: string; fg: string }[] = [];
-    if ((byGroup.atracao ?? 0) >= 3) badges.push({ label: "Cultura em dia", icon: Landmark, bg: "#EFEAFD", fg: "#5A35C9" });
-    if ((byGroup.natureza ?? 0) >= 3) badges.push({ label: "Amigo da natureza", icon: Trees, bg: "#E6F4EA", fg: "#1E6B30" });
-    if ((byGroup.restaurante ?? 0) >= 5) badges.push({ label: "Bom de garfo", icon: Utensils, bg: "#FDEBE1", fg: "#A8380B" });
-    if (accessibility >= 3) badges.push({ label: "Mapeia acessibilidade", icon: Accessibility, bg: "#E3F3F3", fg: "#0A5F67" });
-    if (withPhotos >= 5) badges.push({ label: "Fotógrafo de viagem", icon: Camera, bg: "#E1EEFA", fg: "#155A9C" });
-    if (places.size >= 10) badges.push({ label: "Explorador assíduo", icon: MapIcon, bg: "#FDF0E3", fg: "#9A4508" });
+    // Same badges as /conquistas, most valuable first.
+    const badges = computeAchievements(list)
+      .badges.filter((b) => b.unlocked)
+      .sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
+      .map((b) => ({ label: b.name, icon: b.icon, bg: RARITY[b.rarity].bg, fg: RARITY[b.rarity].fg }));
 
     return { places: places.size, byGroup, points, badges };
   }, [visits]);
@@ -310,7 +306,14 @@ export default function ProfilePage() {
                   </ul>
                 </div>
                 <div className="rounded-[18px] border border-mt-line bg-white p-4">
-                  <h2 className="mb-2.5 text-[15px] font-extrabold">Selos</h2>
+                  <div className="mb-2.5 flex items-baseline justify-between">
+                    <h2 className="text-[15px] font-extrabold">Selos</h2>
+                    {profile.is_own_profile && (
+                      <Link href="/conquistas" className="text-[13px] font-bold text-mt-teal-dark hover:underline">
+                        Ver todos
+                      </Link>
+                    )}
+                  </div>
                   {stats.badges.length ? (
                     <ul className="flex flex-wrap gap-2">
                       {stats.badges.map((b) => (

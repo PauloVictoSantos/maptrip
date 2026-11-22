@@ -9,6 +9,7 @@ import { PlaceQuestionnaire } from "@/components/post/PlaceQuestionnaire";
 import { Spinner } from "@/components/ui/Spinner";
 import { CATEGORY_GROUPS, groupFor } from "@/components/map/categories";
 import { POST_CATEGORIES } from "@/lib/types";
+import { useAuthContext } from "@/components/providers/AuthProvider";
 import { getQuestionsForCategory } from "@/lib/questions";
 import { LEVEL_MAX, MIN_COMMENT_CHARS, computePoints, levelFor } from "@/lib/points";
 
@@ -78,6 +79,8 @@ const EMPTY_FORM: FormState = {
 
 export default function NewVisitPage() {
   const router = useRouter();
+  const { profile } = useAuthContext();
+  const defaultApplied = useRef(false);
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [images, setImages] = useState<string[]>([]);
@@ -141,6 +144,15 @@ export default function NewVisitPage() {
     }
     setHydrated(true);
   }, []);
+
+  // New visits start with the privacy chosen in Configurações (a restored draft keeps its own).
+  useEffect(() => {
+    if (!hydrated || !profile || defaultApplied.current) return;
+    defaultApplied.current = true;
+    if (!draftRestored && profile.default_visibility) {
+      setForm((f) => ({ ...f, visibility: profile.default_visibility! }));
+    }
+  }, [hydrated, profile, draftRestored]);
 
   // ---- Autosave draft -----------------------------------------------------
   useEffect(() => {

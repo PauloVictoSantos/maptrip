@@ -27,6 +27,7 @@ export type User = {
   bio: string | null;
   avatar_url: string | null;
   city: string | null;
+  default_visibility?: "public" | "friends" | "private";
   created_at: string;
 };
 

@@ -2,7 +2,19 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/jwt";
 
 // Pages that require a signed-in user
-const PROTECTED_ROUTES = ["/feed", "/map", "/post", "/profile", "/quero-visitar", "/ja-visitei"];
+const PROTECTED_ROUTES = [
+  "/feed",
+  "/map",
+  "/post",
+  "/profile",
+  "/quero-visitar",
+  "/ja-visitei",
+  "/conquistas",
+  "/ranking",
+  "/viagens",
+  "/configuracoes",
+  "/destino",
+];
 // Pages only for signed-out users
 const AUTH_ONLY_ROUTES = ["/login", "/register"];
 

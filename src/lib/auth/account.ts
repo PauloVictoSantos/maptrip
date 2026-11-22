@@ -15,12 +15,13 @@ export function ownProfile(u: UserDoc) {
     bio: u.bio,
     avatar_url: u.avatar_url,
     city: u.city,
+    default_visibility: u.default_visibility ?? "public",
     created_at: u.created_at.toISOString(),
   };
 }
 
 /** Profile as anyone sees it. */
 export function publicProfile(u: UserDoc) {
-  const { email: _email, ...rest } = ownProfile(u);
+  const { email: _email, default_visibility: _dv, ...rest } = ownProfile(u);
   return rest;
 }

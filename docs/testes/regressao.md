@@ -19,3 +19,9 @@ Cada comportamento que passou a funcionar ganha uma linha aqui (skill `regressio
 - [ ] Página do lugar (agregação e resumo do questionário)
 - [ ] Perfil (contadores, visitas, editar, avatar só do próprio usuário)
 - [ ] Curtir (idempotente), comentar, seguir/deixar de seguir, salvar lugar
+- [ ] Início: aba da cidade (`near` obrigatório, raio 30 km), filtro de categoria, "em alta" com foto/nota
+- [ ] Viagens: só participantes leem/editam (404 para os outros); só o dono convida/remove/exclui; convite só para amigos mútuos; `version` → 409; limites (30 dias, 20 paradas/dia, 10 pessoas, 200 gastos); validação de paradas/gastos
+- [ ] Ranking: só visitas públicas contam; escopo cidade exige cidade no perfil; empates; variação de posição
+- [ ] Destino: agregação por lugar; "quem você segue e já foi" respeita a visibilidade
+- [ ] Configurações: visibilidade padrão (inválida → 400; não aparece no perfil público); troca de senha (senha atual errada → 403); exportação LGPD; exclusão de conta (senha errada → 403; apaga posts, fotos, comentários, curtidas, follows, viagens e corrige contadores)
+- [ ] Conquistas: cálculo de selos, sequência semanal e carimbos de bairro (`lib/achievements.ts`)

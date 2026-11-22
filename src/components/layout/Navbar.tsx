@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Map, PlusCircle, LogOut, Search } from "lucide-react";
+import { Award, Home, Map, PlusCircle, LogOut, Search, Settings, Luggage } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { useAuthContext } from "@/components/providers/AuthProvider";
@@ -11,6 +11,8 @@ const navItems = [
   { href: "/feed", label: "Início", icon: Home },
   { href: "/map", label: "Mapa", icon: Map },
   { href: "/buscar", label: "Buscar", icon: Search },
+  { href: "/viagens", label: "Viagens", icon: Luggage },
+  { href: "/conquistas", label: "Conquistas", icon: Award },
   { href: "/post/new", label: "Novo Post", icon: PlusCircle },
 ];
 
@@ -27,7 +29,7 @@ export function Navbar() {
 
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
@@ -61,7 +63,10 @@ export function Navbar() {
                 </span>
               </Link>
             )}
-            <button onClick={signOut} className="btn-icon" title="Sair">
+            <Link href="/configuracoes" className="btn-icon" title="Configurações" aria-label="Configurações">
+              <Settings size={18} />
+            </Link>
+            <button onClick={signOut} className="btn-icon" title="Sair" aria-label="Sair">
               <LogOut size={18} />
             </button>
           </div>

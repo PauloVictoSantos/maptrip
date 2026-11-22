@@ -3,6 +3,8 @@ import { getCollections, toObjectId } from "@/lib/db/mongo";
 import { getViewerId } from "@/lib/auth/session";
 import { loadUsers, visibleAnd } from "@/lib/db/access";
 import { postJson } from "@/lib/db/serialize";
+import { ANSWER_LABELS } from "@/lib/place";
+import { computePoints, levelFor } from "@/lib/points";
 
 // GET /api/posts/[id] — full visit with author and comments
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,8 +22,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const is_liked = viewer ? !!(await likes.findOne({ user_id: viewer, post_id: id })) : false;
 
   const json = postJson(post, userMap, { is_liked });
+  const answers = post.answers ?? {};
+  const tags = Object.entries(answers)
+    .filter(([k, v]) => v === "sim" && ANSWER_LABELS[k])
+    .map(([k]) => ANSWER_LABELS[k]);
+  const points = computePoints({
+    imageCount: post.media?.length ?? 0,
+    comment: post.description ?? "",
+    category: post.category,
+    answeredCount: Object.keys(answers).length,
+  }).total;
   return NextResponse.json({
     ...json,
+    tags: [...new Set(tags)],
+    record_level: levelFor(points).label,
     user: json.user ? { ...json.user, bio: author?.bio ?? null, city: author?.city ?? null } : null,
     comments: commentRows.map((c) => ({
       id: c._id.toHexString(),
