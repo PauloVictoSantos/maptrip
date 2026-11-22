@@ -3,26 +3,123 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
-import { Bookmark, Camera, CheckCircle2, Home, Loader2, Map, MapPin, Search, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  BedDouble,
+  Bookmark,
+  Camera,
+  CheckCircle2,
+  Coffee,
+  Home,
+  Landmark,
+  Loader2,
+  Map,
+  MapPin,
+  Search,
+  ShoppingBag,
+  Trees,
+  User,
+  Utensils,
+  Wine,
+  type LucideIcon,
+} from "lucide-react";
 import { VisitCard } from "@/components/feed/VisitCard";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuthContext } from "@/components/providers/AuthProvider";
+import { CATEGORY_GROUPS, formatRatingBR, groupFor } from "@/components/map/categories";
+import { POST_CATEGORIES } from "@/lib/types";
+import { haversineKm } from "@/lib/search";
 import { placeHref } from "@/lib/place";
-import type { FeedPost, FeedResponse, SidebarResponse } from "@/lib/feed";
+import {
+  FEED_FILTERS,
+  type FeedFilterId,
+  type FeedPost,
+  type FeedResponse,
+  type FeedTab,
+  type SidebarResponse,
+  type TrendingPlace,
+} from "@/lib/feed";
 
 const FriendsMiniMap = dynamic(() => import("@/components/feed/FriendsMiniMap"), {
   ssr: false,
   loading: () => <div className="h-[180px] animate-pulse bg-mt-land motion-reduce:animate-none" />,
 });
 
-type Tab = "friends" | "discover";
+type Center = { lat: number; lng: number };
+type CityState = { status: "none" | "loading" | "ready" | "failed"; center: Center | null };
+
+const FILTER_ICONS: Record<FeedFilterId, LucideIcon | null> = {
+  todos: null,
+  comer: Utensils,
+  bares: Wine,
+  cafes: Coffee,
+  museus: Landmark,
+  natureza: Trees,
+  hoteis: BedDouble,
+  compras: ShoppingBag,
+};
+
+/** Geocodes the profile city once (Nominatim) and caches it in localStorage. */
+function useCityCenter(city: string | null | undefined, authReady: boolean): CityState {
+  const [state, setState] = useState<CityState>({ status: "loading", center: null });
+  useEffect(() => {
+    if (!authReady) return;
+    const name = city?.trim();
+    if (!name) {
+      setState({ status: "none", center: null });
+      return;
+    }
+    const key = `mt:city:${name.toLowerCase()}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(key) ?? "null");
+      if (cached && Number.isFinite(cached.lat) && Number.isFinite(cached.lng)) {
+        setState({ status: "ready", center: { lat: cached.lat, lng: cached.lng } });
+        return;
+      }
+    } catch {
+      /* storage unavailable */
+    }
+    let alive = true;
+    setState({ status: "loading", center: null });
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(name)}`, {
+      headers: { "Accept-Language": "pt-BR" },
+    })
+      .then((r) => r.json())
+      .then((list) => {
+        if (!alive) return;
+        const lat = parseFloat(list?.[0]?.lat);
+        const lng = parseFloat(list?.[0]?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("not found");
+        try {
+          localStorage.setItem(key, JSON.stringify({ lat, lng }));
+        } catch {
+          /* storage unavailable */
+        }
+        setState({ status: "ready", center: { lat, lng } });
+      })
+      .catch(() => alive && setState({ status: "failed", center: null }));
+    return () => {
+      alive = false;
+    };
+  }, [city, authReady]);
+  return state;
+}
+
+function formatKm(km: number) {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toLocaleString("pt-BR", { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
+}
 
 export default function FeedPage() {
-  const { profile, user } = useAuthContext();
+  const { profile, user, loading: authLoading } = useAuthContext();
   const pathname = usePathname();
+  const router = useRouter();
+  const city = useCityCenter(profile?.city, !authLoading);
+  const cityName = profile?.city?.split(",")[0].trim() || "";
+  const near = city.center ? `${city.center.lat.toFixed(4)},${city.center.lng.toFixed(4)}` : null;
 
-  const [tab, setTab] = useState<Tab>("friends");
+  const [tab, setTab] = useState<FeedTab>("friends");
+  const [filter, setFilter] = useState<FeedFilterId>("todos");
+  const [query, setQuery] = useState("");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -46,6 +143,8 @@ export default function FeedPage() {
       setError("");
       try {
         const params = new URLSearchParams({ tab, limit: "10" });
+        if (filter !== "todos") params.set("filter", filter);
+        if (tab === "city" && near) params.set("near", near);
         if (!reset && cursor) params.set("cursor", cursor);
         const res = await fetch(`/api/feed?${params}`);
         const data = await res.json();
@@ -64,16 +163,23 @@ export default function FeedPage() {
         }
       }
     },
-    [tab, cursor]
+    [tab, cursor, filter, near]
   );
 
+  // The city tab only exists while the city could be located.
+  const cityTab = city.status === "ready" && cityName;
   useEffect(() => {
+    if (tab === "city" && (city.status === "none" || city.status === "failed")) setTab("friends");
+  }, [tab, city.status]);
+
+  useEffect(() => {
+    if (tab === "city" && !near) return; // wait for the city center
     setPosts([]);
     setCursor(null);
     setHasMore(true);
     loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, filter, near]);
 
   // Infinite scroll
   useEffect(() => {
@@ -91,11 +197,19 @@ export default function FeedPage() {
 
   // ---- Sidebar -----------------------------------------------------------
   useEffect(() => {
-    fetch("/api/feed/sidebar")
+    if (city.status === "loading") return; // "Em alta perto de você" needs the city first
+    const qs = near ? `?near=${near}` : "";
+    fetch(`/api/feed/sidebar${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setSidebar(d))
       .catch(() => undefined);
-  }, [user?.id]);
+  }, [user?.id, city.status, near]);
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/buscar?q=${encodeURIComponent(q)}` : "/buscar");
+  }
 
   // ---- Actions -----------------------------------------------------------
   function toggleLikeLocal(id: string) {
@@ -143,7 +257,7 @@ export default function FeedPage() {
 
   const name = profile?.display_name || profile?.username || "";
   const nav = [
-    { href: "/feed", label: "Feed", icon: Home },
+    { href: "/feed", label: "Início", icon: Home },
     { href: "/map", label: "Mapa", icon: Map },
     { href: "/buscar", label: "Buscar lugares", icon: Search },
     { href: "/quero-visitar", label: "Quero visitar", icon: Bookmark },
@@ -206,6 +320,26 @@ export default function FeedPage() {
 
         {/* ---------------- Feed ---------------- */}
         <main className="mx-auto flex min-w-0 max-w-[680px] flex-1 flex-col gap-4">
+          {/* Page header */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[22px] font-extrabold tracking-[-0.3px]">Início</h1>
+            <form role="search" onSubmit={submitSearch} className="relative min-w-[200px] flex-1">
+              <label htmlFor="feed-search" className="sr-only">
+                Buscar lugares
+              </label>
+              <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mt-muted" />
+              <input
+                id="feed-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={cityName ? `Buscar lugares em ${cityName}` : "Buscar lugares e cidades"}
+                maxLength={120}
+                className="h-11 w-full rounded-full border-[1.5px] border-mt-line bg-white pl-10 pr-4 text-[15px] placeholder:text-mt-muted focus:border-mt-teal focus:outline-none"
+              />
+            </form>
+          </div>
+
           {/* Composer */}
           <div className="flex items-center gap-3 rounded-[18px] border border-mt-line bg-white px-4 py-3.5">
             <PersonAvatar name={name || "Você"} src={profile?.avatar_url} className="hidden sm:flex" />
@@ -233,7 +367,8 @@ export default function FeedPage() {
               [
                 ["friends", "Amigos"],
                 ["discover", "Descobrir"],
-              ] as const
+                ...(cityTab ? ([["city", cityName]] as const) : []),
+              ] as [FeedTab, string][]
             ).map(([value, label]) => (
               <button
                 key={value}
@@ -251,6 +386,30 @@ export default function FeedPage() {
             ))}
           </div>
 
+          {/* Category chips */}
+          <div role="group" aria-label="Categorias" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {FEED_FILTERS.map((f) => {
+              const Icon = FILTER_ICONS[f.id];
+              const active = filter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFilter(f.id)}
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-[13px] ${
+                    active
+                      ? "border-mt-teal bg-mt-teal-soft font-extrabold text-mt-teal-dark"
+                      : "border-mt-line bg-white font-semibold text-mt-ink-2 hover:border-mt-line-strong"
+                  }`}
+                >
+                  {Icon && <Icon size={15} strokeWidth={2.2} aria-hidden="true" />}
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+
           {error && (
             <div role="alert" className="rounded-xl bg-[#FFF0F0] px-4 py-3 text-sm font-semibold text-[#B42323]">
               {error}{" "}
@@ -264,7 +423,26 @@ export default function FeedPage() {
             <FeedSkeleton />
           ) : posts.length === 0 && !error ? (
             <div className="rounded-[20px] border border-dashed border-mt-line-strong bg-white px-6 py-10 text-center">
-              {tab === "friends" ? (
+              {filter !== "todos" ? (
+                <>
+                  <p className="text-base font-extrabold">
+                    Nenhuma visita em {FEED_FILTERS.find((f) => f.id === filter)?.label.toLowerCase()} por aqui
+                  </p>
+                  <p className="mt-1 text-sm text-mt-muted">Tente outra categoria ou veja todas as visitas.</p>
+                  <button
+                    type="button"
+                    onClick={() => setFilter("todos")}
+                    className="mt-4 h-10 rounded-full border-[1.5px] border-mt-teal px-5 text-sm font-bold text-mt-teal-dark hover:bg-mt-teal-soft"
+                  >
+                    Ver tudo
+                  </button>
+                </>
+              ) : tab === "city" ? (
+                <>
+                  <p className="text-base font-extrabold">Nenhuma visita pública em {cityName} ainda</p>
+                  <p className="mt-1 text-sm text-mt-muted">Registre um lugar da sua cidade e seja a primeira pessoa a aparecer aqui.</p>
+                </>
+              ) : tab === "friends" ? (
                 <>
                   <p className="text-base font-extrabold">Nada por aqui ainda</p>
                   <p className="mt-1 text-sm text-mt-muted">
@@ -341,27 +519,19 @@ export default function FeedPage() {
                 : `${sidebar.friendsOnMap.length} ${
                     sidebar.friendsOnMap.length === 1 ? "amigo registrou" : "amigos registraram"
                   } visitas esta semana`}
+              {sidebar && sidebar.friendsOnMap.length > 0 && (
+                <span className="mt-1 block text-xs">Mostra a última visita de cada pessoa, só do que ela compartilha com você.</span>
+              )}
             </p>
           </div>
 
           {sidebar && sidebar.trending.length > 0 && (
             <div className="rounded-[18px] border border-mt-line bg-white px-4 py-3.5">
-              <h2 className="mb-2 text-[15px] font-extrabold">Em alta esta semana</h2>
-              <ol className="flex flex-col">
-                {sidebar.trending.map((t, i) => (
-                  <li key={t.post_id} className={i ? "border-t border-[#EEF0EE]" : ""}>
-                    <Link
-                      href={placeHref(t.place_name, t.lat, t.lng)}
-                      className="flex items-center gap-2.5 py-2 text-mt-ink hover:text-mt-teal-dark"
-                    >
-                      <span className="w-6 text-sm font-extrabold text-mt-muted">{i + 1}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold">{t.place_name}</span>
-                        <span className="block text-xs text-mt-muted">
-                          {t.visits} {t.visits === 1 ? "visita" : "visitas"} esta semana
-                        </span>
-                      </span>
-                    </Link>
+              <h2 className="mb-2.5 text-[15px] font-extrabold">{near ? "Em alta perto de você" : "Em alta esta semana"}</h2>
+              <ol className="flex flex-col gap-2.5">
+                {sidebar.trending.map((t) => (
+                  <li key={t.post_id}>
+                    <TrendingCard place={t} center={city.center} />
                   </li>
                 ))}
               </ol>
@@ -410,6 +580,51 @@ export default function FeedPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(POST_CATEGORIES.map((c) => [c.value, c.label]));
+
+function TrendingCard({ place, center }: { place: TrendingPlace; center: Center | null }) {
+  const g = CATEGORY_GROUPS[groupFor(place.category)];
+  const km = center ? haversineKm(center.lat, center.lng, place.lat, place.lng) : null;
+  const details = [
+    place.category ? CATEGORY_LABEL[place.category] ?? g.label : null,
+    `${place.visits} ${place.visits === 1 ? "visita" : "visitas"} esta semana`,
+    km != null ? formatKm(km) : null,
+  ].filter(Boolean);
+  return (
+    <Link
+      href={placeHref(place.place_name, place.lat, place.lng)}
+      className="flex items-center gap-3 rounded-[14px] p-1 text-mt-ink hover:bg-mt-bg"
+    >
+      <span
+        className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+        style={{ background: g.soft, color: g.color }}
+      >
+        {place.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={place.photo_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {g.paths.map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </svg>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold">{place.place_name}</span>
+        {place.rating > 0 && (
+          <span className="block text-xs font-bold text-[#9A4508]">
+            <span aria-hidden="true">★ </span>
+            <span className="sr-only">Nota </span>
+            {formatRatingBR(place.rating)}
+          </span>
+        )}
+        <span className="block truncate text-xs text-mt-muted">{details.join(" · ")}</span>
+      </span>
+    </Link>
   );
 }
 

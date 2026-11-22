@@ -8,7 +8,7 @@ import { Logo } from "@/components/ui/Logo";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 
 const navItems = [
-  { href: "/feed", label: "Feed", icon: Home },
+  { href: "/feed", label: "Início", icon: Home },
   { href: "/map", label: "Mapa", icon: Map },
   { href: "/buscar", label: "Buscar", icon: Search },
   { href: "/post/new", label: "Novo Post", icon: PlusCircle },
@@ -80,7 +80,7 @@ export function Navbar() {
             }`}
           >
             <Home size={22} />
-            <span>Feed</span>
+            <span>Início</span>
           </Link>
 
           <Link

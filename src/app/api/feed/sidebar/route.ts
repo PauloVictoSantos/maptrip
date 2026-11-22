@@ -1,33 +1,63 @@
-import { NextResponse } from "next/server";
-import type { ObjectId } from "mongodb";
+import { NextRequest, NextResponse } from "next/server";
+import type { Filter, ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db/mongo";
 import { getViewerId } from "@/lib/auth/session";
 import { followingIds, loadUsers, visibleAnd } from "@/lib/db/access";
 import { normalize } from "@/lib/search";
-import type { SidebarResponse } from "@/lib/feed";
+import { CITY_RADIUS_KM, parseNear, type SidebarResponse, type TrendingPlace } from "@/lib/feed";
+import type { PostDoc } from "@/lib/db/types";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-// GET /api/feed/sidebar — data for the feed side columns
-export async function GET() {
+// GET /api/feed/sidebar?near=<lat,lng> — data for the feed side columns.
+// With `near`, "Em alta" only counts visits within CITY_RADIUS_KM of that point.
+export async function GET(request: NextRequest) {
+  const near = parseNear(request.nextUrl.searchParams.get("near"));
   const viewer = await getViewerId();
   const { posts, follows } = await getCollections();
   const since = new Date(Date.now() - WEEK_MS);
 
   // ---- Trending: public visits this week, grouped by place ---------------
+  const trendFilter: Filter<PostDoc> = { visibility: "public", created_at: { $gte: since } };
+  if (near) {
+    trendFilter.location = { $geoWithin: { $centerSphere: [[near.lng, near.lat], CITY_RADIUS_KM / 6378.1] } };
+  }
   const recent = await posts
-    .find({ visibility: "public", created_at: { $gte: since } }, { projection: { place_name: 1, lat: 1, lng: 1 } })
+    .find(trendFilter, { projection: { place_name: 1, lat: 1, lng: 1, category: 1, rating: 1, media: 1 } })
     .sort({ created_at: -1 })
     .limit(1000)
     .toArray();
-  const byPlace = new Map<string, SidebarResponse["trending"][number]>();
+  // Newest first, so the first visit seen per place gives its photo/category.
+  const byPlace = new Map<string, TrendingPlace & { ratingSum: number; rated: number }>();
   for (const p of recent) {
     const key = `${normalize(p.place_name)}|${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-    const entry = byPlace.get(key) ?? { place_name: p.place_name, visits: 0, post_id: p._id.toHexString(), lat: p.lat, lng: p.lng };
+    const entry = byPlace.get(key) ?? {
+      place_name: p.place_name,
+      visits: 0,
+      post_id: p._id.toHexString(),
+      lat: p.lat,
+      lng: p.lng,
+      category: p.category,
+      rating: 0,
+      photo_url: null,
+      ratingSum: 0,
+      rated: 0,
+    };
     entry.visits++;
+    if (p.rating > 0) {
+      entry.ratingSum += p.rating;
+      entry.rated++;
+    }
+    if (!entry.photo_url && p.media?.length) {
+      entry.photo_url = [...p.media].sort((a, b) => a.order_index - b.order_index)[0].url;
+    }
+    entry.category ??= p.category;
     byPlace.set(key, entry);
   }
-  const trending = [...byPlace.values()].sort((a, b) => b.visits - a.visits).slice(0, 3);
+  const trending: TrendingPlace[] = [...byPlace.values()]
+    .sort((a, b) => b.visits - a.visits)
+    .slice(0, 3)
+    .map(({ ratingSum, rated, ...t }) => ({ ...t, rating: rated ? Math.round((ratingSum / rated) * 10) / 10 : 0 }));
 
   if (!viewer) {
     const body: SidebarResponse = { me: null, friendsOnMap: [], trending, suggestions: [] };

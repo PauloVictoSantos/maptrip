@@ -6,7 +6,9 @@ import { followingIds, loadUsers, visibleAnd } from "@/lib/db/access";
 import { postJson } from "@/lib/db/serialize";
 import { computePoints, levelFor, LEVELS } from "@/lib/points";
 import type { PostDoc } from "@/lib/db/types";
-import type { FeedComment, FeedPost, FeedResponse } from "@/lib/feed";
+import { CITY_RADIUS_KM, feedFilterCategories, parseNear, type FeedComment, type FeedPost, type FeedResponse } from "@/lib/feed";
+
+const EARTH_RADIUS_KM = 6378.1;
 
 const TAG_KEYS: Record<string, { yes: string } | { no: string }> = {
   acessibilidade: { yes: "Acessível" },
@@ -16,10 +18,16 @@ const TAG_KEYS: Record<string, { yes: string } | { no: string }> = {
 };
 const COMPLETE_MIN = LEVELS.find((l) => l.label === "Completo")!.min;
 
-// GET /api/feed?tab=friends|discover&cursor=<created_at ISO>&limit=10
+// GET /api/feed?tab=friends|discover|city&near=<lat,lng>&filter=<FEED_FILTERS id>&cursor=<created_at ISO>&limit=10
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
-  const tab = sp.get("tab") === "discover" ? "discover" : "friends";
+  const tabParam = sp.get("tab");
+  const tab = tabParam === "discover" || tabParam === "city" ? tabParam : "friends";
+  const near = parseNear(sp.get("near"));
+  if (tab === "city" && !near) {
+    return NextResponse.json({ error: "Informe a cidade (near=lat,lng)." }, { status: 400 });
+  }
+  const categories = feedFilterCategories(sp.get("filter"));
   const cursor = sp.get("cursor");
   const limit = Math.min(Math.max(parseInt(sp.get("limit") ?? "10", 10) || 10, 1), 30);
 
@@ -29,6 +37,7 @@ export async function GET(request: NextRequest) {
   const base: Filter<PostDoc> = {};
   const cursorDate = cursor ? new Date(cursor) : null;
   if (cursorDate && !isNaN(cursorDate.getTime())) base.created_at = { $lt: cursorDate };
+  if (categories) base.category = { $in: categories };
 
   let filter: Filter<PostDoc>;
   if (tab === "friends") {
@@ -38,6 +47,13 @@ export async function GET(request: NextRequest) {
     // Own + followed people; private visits never appear in feeds.
     const ids = [viewer, ...(await followingIds(viewer))];
     filter = await visibleAnd(viewer, { ...base, user_id: { $in: ids }, visibility: { $in: ["public", "friends"] } });
+  } else if (tab === "city" && near) {
+    // Public visits around the city center (2dsphere index on location).
+    filter = {
+      ...base,
+      visibility: "public",
+      location: { $geoWithin: { $centerSphere: [[near.lng, near.lat], CITY_RADIUS_KM / EARTH_RADIUS_KM] } },
+    };
   } else {
     filter = { ...base, visibility: "public" };
   }

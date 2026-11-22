@@ -205,7 +205,13 @@ export default function ProfilePage() {
                     profile.is_following ? "border-[1.5px] border-mt-teal text-mt-teal-dark hover:bg-mt-teal-soft" : "bg-mt-teal text-white hover:bg-mt-teal-dark"
                   }`}
                 >
-                  {profile.is_following ? "Seguindo" : "Seguir"}
+                  {profile.is_following
+                    ? profile.follows_you
+                      ? "Amigos"
+                      : "Seguindo"
+                    : profile.follows_you
+                    ? "Seguir de volta"
+                    : "Seguir"}
                 </button>
               )}
               <button
