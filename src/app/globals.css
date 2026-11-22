@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap");
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-surface-muted text-gray-900 antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-brand-700 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-card transition-all duration-200 hover:bg-gray-50 hover:shadow-card-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-900 active:scale-[0.98];
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center rounded-xl p-2.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 active:scale-95;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-card transition-all duration-200 placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+  }
+
+  .card {
+    @apply rounded-2xl border border-gray-100 bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  .card-flat {
+    @apply rounded-2xl bg-white border border-gray-100;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-brand {
+    @apply badge bg-brand-50 text-brand-700;
+  }
+
+  .badge-gray {
+    @apply badge bg-gray-100 text-gray-600;
+  }
+
+  .section-title {
+    @apply text-lg font-bold text-gray-900;
+  }
+
+  .text-muted {
+    @apply text-sm text-gray-500;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gradient-brand {
+    @apply bg-gradient-to-br from-brand-500 via-brand-600 to-emerald-700;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-600 to-emerald-600 bg-clip-text text-transparent;
+  }
+}
+
+/* Leaflet map customizations */
+.leaflet-container {
+  /* Keep Leaflet's pane z-indexes (400–1000) from escaping over dialogs */
+  isolation: isolate;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background: #eef0ea;
+}
+/* Muted basemap so the category colors of the pins stand out */
+.maptrip-map .leaflet-tile-pane {
+  filter: saturate(0.55) brightness(1.04) contrast(0.95);
+}
+
+.maptrip-pin,
+.maptrip-cluster {
+  background: transparent !important;
+  border: none !important;
+}
+.maptrip-pin:focus-visible,
+.maptrip-cluster:focus-visible {
+  outline: none;
+}
+.maptrip-pin:focus-visible .maptrip-pin-dot,
+.maptrip-cluster:focus-visible .maptrip-cluster-dot {
+  outline: 3px solid #14202b;
+  outline-offset: 2px;
+}
+.maptrip-pin-body {
+  position: relative;
+  animation: maptrip-pin-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.maptrip-pin-dot {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+.maptrip-pin:hover .maptrip-pin-dot {
+  transform: scale(1.08);
+}
+.maptrip-pin-halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  animation: maptrip-pulse 1.8s ease-out infinite;
+}
+.maptrip-cluster-dot {
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #0e7c86;
+  color: #fff;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.maptrip-rank {
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  color: #fff;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(20, 32, 43, 0.3);
+}
+.maptrip-rank.is-highlighted {
+  box-shadow: 0 0 0 10px rgba(20, 32, 43, 0.14), 0 4px 10px rgba(20, 32, 43, 0.35);
+}
+.maptrip-pin:focus-visible .maptrip-rank {
+  outline: 3px solid #14202b;
+  outline-offset: 2px;
+}
+.maptrip-card-in {
+  animation: maptrip-card-in 220ms ease-out both;
+}
+
+.maptrip-like-pop {
+  animation: maptrip-like-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes maptrip-like-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+@keyframes maptrip-pin-in {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes maptrip-pulse {
+  0% { transform: scale(0.85); opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0.35; }
+}
+@keyframes maptrip-card-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maptrip-pin-body,
+  .maptrip-pin-halo,
+  .maptrip-card-in,
+  .maptrip-like-pop {
+    animation: none;
+  }
+  .maptrip-pin-dot {
+    transition: none;
+  }
+}
