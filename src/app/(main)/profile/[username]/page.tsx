@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { ImagePlus, Loader2, LogOut, Settings, Share2, X } from "lucide-react";
 import { computeAchievements, RARITY, RARITY_ORDER } from "@/lib/achievements";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import { FollowListDialog } from "@/components/profile/FollowListDialog";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 import { CATEGORY_GROUPS, GROUP_ORDER, formatRatingBR, groupFor, type CategoryGroup } from "@/components/map/categories";
 import { PROFILE_LEVELS, profileLevelFor } from "@/lib/points";
@@ -54,6 +55,7 @@ export default function ProfilePage() {
   const [followBusy, setFollowBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [followList, setFollowList] = useState<"seguidores" | "seguindo" | null>(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -187,7 +189,7 @@ export default function ProfilePage() {
                         <button
                           type="button"
                           onClick={() => setFollowList(list)}
-                          aria-label={`Ver ${label.toLowerCase()} (${n})`}
+                          aria-label={`Ver ${String(label).toLowerCase()} (${n})`}
                           className="rounded-lg hover:text-mt-teal-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mt-teal"
                         >
                           {n}
@@ -398,6 +400,22 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {followList && (
+        <FollowListDialog
+          username={profile.username}
+          name={name}
+          initialTab={followList}
+          counts={{ seguidores: profile.followers_count, seguindo: profile.following_count }}
+          onClose={() => setFollowList(null)}
+          onFollowChange={(_u, following) => {
+            // On your own profile, following/unfollowing someone changes your "Seguindo" count.
+            if (profile.is_own_profile) {
+              setProfile((p) => (p ? { ...p, following_count: Math.max(0, p.following_count + (following ? 1 : -1)) } : p));
+            }
+          }}
+        />
+      )}
 
       {editing && (
         <EditProfile
