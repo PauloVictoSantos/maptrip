@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Lock, Mail, MailCheck, MapPin, User } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Mail, MailCheck, User } from "lucide-react";
+import { BrandLockup } from "@/components/ui/BrandMark";
 import { AuthField, GoogleIcon } from "./AuthField";
 import { PasswordStrength } from "./PasswordStrength";
 import { EMAIL_PATTERN, passwordStrength } from "@/lib/password";
@@ -126,10 +127,8 @@ export function HeroPanel() {
       <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#04181A]/85 via-[#04181A]/25 to-[#04181A]/45" />
       <div className="relative flex h-full flex-col justify-between p-5 text-white sm:p-8 md:p-12">
         <a href="/" className="flex w-fit items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" aria-label="MapTrip, página inicial">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/30 backdrop-blur">
-            <MapPin size={22} strokeWidth={2.4} aria-hidden="true" />
-          </span>
-          <span className="text-xl font-bold tracking-tight">MapTrip</span>
+          {/* Dark-background version of the brand lockup, over the photo. */}
+          <BrandLockup size={40} variant="dark" />
         </a>
         <div className="hidden md:block">
           <p className="max-w-[460px] text-[34px] font-semibold leading-[1.15] tracking-[-0.02em] lg:text-[40px]">Cada lugar que você visita vira uma história no mapa.</p>

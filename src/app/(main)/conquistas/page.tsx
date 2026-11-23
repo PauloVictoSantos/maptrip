@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Flame, Trophy } from "lucide-react";
 import { useAuthContext } from "@/components/providers/AuthProvider";
-import { BadgeMedal } from "@/components/achievements/BadgeMedal";
-import { computeAchievements, RARITY, RARITY_ORDER, type BadgeState } from "@/lib/achievements";
+import { BadgeCircle, BadgeMedal } from "@/components/achievements/BadgeMedal";
+import { computeAchievements, tierIndex, TIER_STYLE, type BadgeState, type Tier } from "@/lib/achievements";
 import type { ProfileVisit } from "@/app/api/users/[username]/visits/route";
 
 type Filter = "todos" | "ganhos" | "bloq" | "raros";
@@ -47,9 +47,9 @@ export default function AchievementsPage() {
     );
   }
 
-  const unlockedCount = a.badges.filter((b) => b.unlocked).length;
+  const unlockedCount = a.badges.filter((b) => b.tier).length;
   const shown = a.badges.filter((b) =>
-    filter === "ganhos" ? b.unlocked : filter === "bloq" ? !b.unlocked : filter === "raros" ? RARITY_ORDER.indexOf(b.rarity) >= 1 : true
+    filter === "ganhos" ? !!b.tier : filter === "bloq" ? !b.tier : filter === "raros" ? tierIndex(b.tier) >= 1 : true
   );
   const name = profile.display_name || profile.username;
   const since = new Date(profile.created_at).getFullYear();
@@ -166,9 +166,14 @@ export default function AchievementsPage() {
           {/* ---- Main column ---- */}
           <main className="flex min-w-0 flex-[999_1_480px] flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-[-0.3px]">
-                Selos · {unlockedCount} de {a.badges.length}
-              </h2>
+              <div>
+                <h2 className="text-[24px] font-extrabold tracking-[-0.3px]">
+                  Selos · {unlockedCount} de {a.badges.length}
+                </h2>
+                <p className="text-[13px] text-mt-muted">
+                  {a.levelsUnlocked} de {a.levelsTotal} níveis conquistados · cada selo evolui de comum para raro e épico
+                </p>
+              </div>
               <div role="group" aria-label="Filtrar selos" className="flex flex-wrap gap-2">
                 {(
                   [
@@ -205,8 +210,8 @@ export default function AchievementsPage() {
             </ul>
 
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-              {a.latest && <AchievementCard badge={a.latest} title="Último selo" />}
-              {a.next && <AchievementCard badge={a.next} title="Próximo selo" />}
+              {a.latest && <AchievementCard badge={a.latest.badge} tier={a.latest.tier} date={a.latest.date} title="Último nível conquistado" />}
+              {a.next && <AchievementCard badge={a.next} tier={a.next.next!.tier} title="Próximo nível" />}
             </div>
 
             <section>
@@ -240,43 +245,40 @@ export default function AchievementsPage() {
   );
 }
 
-function AchievementCard({ badge, title }: { badge: BadgeState; title: string }) {
-  const r = RARITY[badge.rarity];
-  const Icon = badge.icon;
+
+/** "Último nível conquistado" (with date) or "Próximo nível" (with progress). */
+function AchievementCard({ badge, tier, date, title }: { badge: BadgeState; tier: Tier; date?: string; title: string }) {
+  const style = TIER_STYLE[tier];
+  const reached = tierIndex(badge.tier) >= tierIndex(tier);
+  const goal = badge.goals[tierIndex(tier)];
   return (
     <article className="flex gap-4 rounded-[20px] border border-mt-line bg-white p-5">
-      <span
-        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
-        style={{
-          background: badge.unlocked ? r.bg : "#EFF1EE",
-          color: badge.unlocked ? r.fg : "#8A938D",
-          boxShadow: `inset 0 0 0 2px ${badge.unlocked ? r.ring : "#C9CFCA"}`,
-        }}
-      >
-        <Icon size={24} strokeWidth={1.8} aria-hidden="true" />
-      </span>
+      <BadgeCircle id={badge.id} tier={reached ? tier : null} size={60} />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-mt-muted">
-          {title} · <span style={{ color: r.fg }}>{r.label}</span>
+          {title} · <span style={{ color: style.ink }}>{style.label}</span>
         </p>
         <h3 className="mt-0.5 text-base font-extrabold">{badge.name}</h3>
-        <p className="mt-1 text-[13px] text-mt-ink-2">{badge.description}</p>
-        {badge.unlocked ? (
-          badge.unlockedAt && <p className="mt-2 text-xs text-mt-muted">Desbloqueado em {shortDate(badge.unlockedAt)}</p>
+        {reached ? (
+          <p className="mt-1 text-[13px] text-mt-ink-2">
+            {badge.count} {badge.count === 1 ? badge.unit[0] : badge.unit[1]}
+            {date && <span className="text-mt-muted"> · conquistado em {shortDate(date)}</span>}
+          </p>
         ) : (
           <>
+            <p className="mt-1 text-[13px] text-mt-ink-2">{badge.description}</p>
             <div
               role="progressbar"
-              aria-label={`Progresso de ${badge.name}`}
+              aria-label={`Progresso de ${badge.name} até o nível ${style.label.toLowerCase()}`}
               aria-valuemin={0}
-              aria-valuemax={badge.goal}
-              aria-valuenow={badge.progress}
+              aria-valuemax={goal}
+              aria-valuenow={Math.min(badge.count, goal)}
               className="mt-3 h-2 overflow-hidden rounded-full bg-mt-line"
             >
-              <div className="h-2 rounded-full bg-[#16845A]" style={{ width: `${(badge.progress / badge.goal) * 100}%` }} />
+              <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (badge.count / goal) * 100)}%`, background: style.accent }} />
             </div>
-            <p className="mt-1.5 text-xs text-mt-muted">
-              {badge.progress} de {badge.goal}
+            <p className="mt-1.5 text-xs tabular-nums text-mt-muted">
+              {badge.count} de {goal}
             </p>
           </>
         )}

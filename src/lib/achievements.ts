@@ -1,49 +1,34 @@
 // Achievements derived from a user's visits (pure; no extra storage).
-// Used by /conquistas and the profile page so both always agree.
+// Each achievement has three tiers — comum, raro, épico — with growing goals and the
+// same symbol (see scripts/achievement-icons.mjs). Used by /conquistas and the profile.
 
-import {
-  Accessibility,
-  BadgeCheck,
-  BedDouble,
-  Camera,
-  Compass,
-  Landmark,
-  Map as MapIcon,
-  MapPin,
-  Route,
-  Trees,
-  Trophy,
-  Utensils,
-  type LucideIcon,
-} from "lucide-react";
 import { groupFor } from "@/components/map/categories";
 import { profileLevelFor } from "@/lib/points";
 import { normalize } from "@/lib/search";
+import type { AchievementIconId } from "@/components/achievements/achievementIcons";
 import type { ProfileVisit } from "@/app/api/users/[username]/visits/route";
 
-export type Rarity = "common" | "rare" | "epic" | "legendary";
+export type Tier = "comum" | "raro" | "epico";
+export const TIER_ORDER: Tier[] = ["comum", "raro", "epico"];
 
-export const RARITY: Record<Rarity, { label: string; ring: string; bg: string; fg: string }> = {
-  common: { label: "Comum", ring: "#737D76", bg: "#EFF1EE", fg: "#3A423D" },
-  rare: { label: "Raro", ring: "#16845A", bg: "#EEF7F1", fg: "#126E4B" },
-  epic: { label: "Épico", ring: "#123D2C", bg: "#D6EEDD", fg: "#123D2C" },
-  legendary: { label: "Lendário", ring: "#C8A85C", bg: "#F5EEDB", fg: "#7A5F1C" },
+/** Badge colors per tier (line = ink, highlight = accent); same as the icon preview. */
+export const TIER_STYLE: Record<Tier, { label: string; bg: string; ink: string; accent: string; ring: string }> = {
+  comum: { label: "Comum", bg: "#EFF1EE", ink: "#3A423D", accent: "#737D76", ring: "#C9CFCA" },
+  raro: { label: "Raro", bg: "#EEF7F1", ink: "#126E4B", accent: "#16845A", ring: "#A3D9B1" },
+  epico: { label: "Épico", bg: "#F5EEDB", ink: "#123D2C", accent: "#C8A85C", ring: "#C8A85C" },
 };
+export const LOCKED_STYLE = { bg: "#EFF1EE", ink: "#A3ACA6", accent: "#C9CFCA", ring: "#E3E7E3" };
 
-export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "legendary"];
+function visitDate(v: ProfileVisit): Date {
+  return v.visit_date ? new Date(`${v.visit_date}T12:00:00`) : new Date(v.created_at);
+}
 
-type BadgeDef = {
-  id: string;
-  name: string;
-  description: string;
-  rarity: Rarity;
-  icon: LucideIcon;
-  goal: number;
-  /** Counts matching visits… */
-  test?: (v: ProfileVisit) => boolean;
-  /** …or distinct non-null keys. */
-  key?: (v: ProfileVisit) => string | null;
-};
+function weekStart(d: Date): number {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // Monday
+  return x.getTime();
+}
 
 export function placeKey(v: Pick<ProfileVisit, "place_name" | "lat" | "lng">) {
   return `${normalize(v.place_name)}|${v.lat.toFixed(3)},${v.lng.toFixed(3)}`;
@@ -57,32 +42,66 @@ export function neighborhoodOf(placeName: string): string | null {
   return /\d{5}|^brasil$/i.test(last) || last.length > 40 ? null : last;
 }
 
-const BADGES: BadgeDef[] = [
-  { id: "primeira", name: "Primeira visita", description: "Registre sua primeira visita.", rarity: "common", icon: MapPin, goal: 1, test: () => true },
-  { id: "hospede", name: "Hóspede", description: "Registre 2 hospedagens.", rarity: "common", icon: BedDouble, goal: 2, test: (v) => v.category === "hotel" },
-  { id: "cultura", name: "Cultura em dia", description: "Visite 3 museus ou monumentos.", rarity: "rare", icon: Landmark, goal: 3, test: (v) => groupFor(v.category) === "atracao" },
-  { id: "natureza", name: "Amigo da natureza", description: "Visite 3 parques, trilhas ou praias.", rarity: "rare", icon: Trees, goal: 3, test: (v) => groupFor(v.category) === "natureza" },
-  { id: "garfo", name: "Bom de garfo", description: "Registre 5 restaurantes, bares ou cafés.", rarity: "rare", icon: Utensils, goal: 5, test: (v) => groupFor(v.category) === "restaurante" },
-  { id: "foto", name: "Fotógrafo de viagem", description: "Publique 5 visitas com fotos.", rarity: "rare", icon: Camera, goal: 5, test: (v) => v.photos.length > 0 },
-  { id: "explorador", name: "Explorador assíduo", description: "Conheça 10 lugares diferentes.", rarity: "rare", icon: MapIcon, goal: 10, key: placeKey },
-  { id: "acess", name: "Mapeia acessibilidade", description: "Responda sobre acessibilidade em 3 visitas.", rarity: "epic", icon: Accessibility, goal: 3, test: (v) => v.answered.includes("acessibilidade") },
-  { id: "completo", name: "Registro completo", description: "Faça 5 registros de nível Completo ou melhor.", rarity: "epic", icon: BadgeCheck, goal: 5, test: (v) => v.points >= 40 },
-  { id: "bairros", name: "Desbravador de bairros", description: "Visite lugares em 5 bairros diferentes.", rarity: "epic", icon: Route, goal: 5, key: (v) => (neighborhoodOf(v.place_name) ? normalize(neighborhoodOf(v.place_name)!) : null) },
-  { id: "cinquenta", name: "Cinquenta visitas", description: "Registre 50 visitas.", rarity: "legendary", icon: Trophy, goal: 50, test: () => true },
-  { id: "guia", name: "Guia da cidade", description: "Conheça 30 lugares diferentes.", rarity: "legendary", icon: Compass, goal: 30, key: placeKey },
+type Def = {
+  id: AchievementIconId;
+  name: string;
+  /** What one unit of progress is, e.g. "visitas" (plural) / "visita". */
+  unit: [singular: string, plural: string];
+  /** Sentence for a goal: "Registre 10 visitas." */
+  describe: (goal: number) => string;
+  goals: [number, number, number];
+  /** Counts matching visits… */
+  test?: (v: ProfileVisit) => boolean;
+  /** …or distinct non-null keys. */
+  key?: (v: ProfileVisit) => string | null;
+};
+
+const n = (goal: number, one: string, many: string) => `${goal} ${goal === 1 ? one : many}`;
+
+const DEFS: Def[] = [
+  { id: "primeira-visita", name: "Primeira visita", unit: ["visita", "visitas"], goals: [1, 5, 15], test: () => true,
+    describe: (g) => (g === 1 ? "Registre sua primeira visita." : `Registre ${g} visitas.`) },
+  { id: "hospede", name: "Hóspede", unit: ["hospedagem", "hospedagens"], goals: [2, 5, 10], test: (v) => v.category === "hotel",
+    describe: (g) => `Registre ${n(g, "hospedagem", "hospedagens")}.` },
+  { id: "cultura-em-dia", name: "Cultura em dia", unit: ["visita", "visitas"], goals: [3, 10, 25], test: (v) => groupFor(v.category) === "atracao",
+    describe: (g) => `Visite ${g} museus ou monumentos.` },
+  { id: "amigo-da-natureza", name: "Amigo da natureza", unit: ["visita", "visitas"], goals: [3, 10, 25], test: (v) => groupFor(v.category) === "natureza",
+    describe: (g) => `Visite ${g} parques, trilhas ou praias.` },
+  { id: "bom-de-garfo", name: "Bom de garfo", unit: ["visita", "visitas"], goals: [5, 15, 40], test: (v) => groupFor(v.category) === "restaurante",
+    describe: (g) => `Registre ${g} restaurantes, bares ou cafés.` },
+  { id: "fotografo-de-viagem", name: "Fotógrafo de viagem", unit: ["visita com foto", "visitas com foto"], goals: [5, 20, 50], test: (v) => v.photos.length > 0,
+    describe: (g) => `Publique ${g} visitas com fotos.` },
+  { id: "explorador-assiduo", name: "Explorador assíduo", unit: ["semana", "semanas"], goals: [4, 12, 26], key: (v) => String(weekStart(visitDate(v))),
+    describe: (g) => `Registre visitas em ${g} semanas diferentes.` },
+  { id: "mapeia-acessibilidade", name: "Mapeia acessibilidade", unit: ["resposta", "respostas"], goals: [3, 10, 25], test: (v) => v.answered.includes("acessibilidade"),
+    describe: (g) => `Responda sobre acessibilidade em ${g} visitas.` },
+  { id: "registro-completo", name: "Registro completo", unit: ["registro", "registros"], goals: [5, 15, 40], test: (v) => v.points >= 40,
+    describe: (g) => `Faça ${g} registros de nível Completo ou melhor.` },
+  { id: "desbravador-de-bairros", name: "Desbravador de bairros", unit: ["bairro", "bairros"], goals: [5, 12, 25],
+    key: (v) => (neighborhoodOf(v.place_name) ? normalize(neighborhoodOf(v.place_name)!) : null),
+    describe: (g) => `Visite lugares em ${g} bairros diferentes.` },
+  { id: "cinquenta-visitas", name: "Cinquenta visitas", unit: ["visita", "visitas"], goals: [50, 100, 250], test: () => true,
+    describe: (g) => `Registre ${g} visitas.` },
+  { id: "guia-da-cidade", name: "Guia da cidade", unit: ["lugar", "lugares"], goals: [30, 75, 150], key: placeKey,
+    describe: (g) => `Conheça ${g} lugares diferentes.` },
 ];
 
-export type BadgeState = Omit<BadgeDef, "test" | "key"> & { progress: number; unlocked: boolean; unlockedAt: string | null };
+export type BadgeState = {
+  id: AchievementIconId;
+  name: string;
+  goals: [number, number, number];
+  count: number;
+  /** Highest tier reached, or null when still locked. */
+  tier: Tier | null;
+  /** Next tier to reach and its goal (null when épico is done). */
+  next: { tier: Tier; goal: number } | null;
+  unlockedAt: Partial<Record<Tier, string>>;
+  description: string; // the next goal, or the épico goal when maxed
+  unit: [string, string];
+};
 
-function visitDate(v: ProfileVisit): Date {
-  return v.visit_date ? new Date(`${v.visit_date}T12:00:00`) : new Date(v.created_at);
-}
-
-function weekStart(d: Date): number {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // Monday
-  return x.getTime();
+export function tierIndex(t: Tier | null) {
+  return t ? TIER_ORDER.indexOf(t) : -1;
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -90,20 +109,39 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export function computeAchievements(visits: ProfileVisit[], now = new Date()) {
   const asc = [...visits].sort((a, b) => visitDate(a).getTime() - visitDate(b).getTime());
 
-  const badges: BadgeState[] = BADGES.map(({ test, key, ...def }) => {
-    let progress = 0;
-    let unlockedAt: string | null = null;
+  const badges: BadgeState[] = DEFS.map((def) => {
+    const events: string[] = []; // date of each unit of progress, oldest first
     const seen = new Set<string>();
     for (const v of asc) {
-      if (key) {
-        const k = key(v);
+      if (def.key) {
+        const k = def.key(v);
         if (!k || seen.has(k)) continue;
         seen.add(k);
-      } else if (!test!(v)) continue;
-      progress++;
-      if (progress === def.goal) unlockedAt = visitDate(v).toISOString();
+      } else if (!def.test!(v)) continue;
+      events.push(visitDate(v).toISOString());
     }
-    return { ...def, progress: Math.min(progress, def.goal), unlocked: progress >= def.goal, unlockedAt };
+    const count = events.length;
+    let tier: Tier | null = null;
+    const unlockedAt: Partial<Record<Tier, string>> = {};
+    def.goals.forEach((g, i) => {
+      if (count >= g) {
+        tier = TIER_ORDER[i];
+        unlockedAt[TIER_ORDER[i]] = events[g - 1];
+      }
+    });
+    const ni = tierIndex(tier) + 1;
+    const next = ni < 3 ? { tier: TIER_ORDER[ni], goal: def.goals[ni] } : null;
+    return {
+      id: def.id,
+      name: def.name,
+      goals: def.goals,
+      count,
+      tier,
+      next,
+      unlockedAt,
+      description: def.describe(next ? next.goal : def.goals[2]),
+      unit: def.unit,
+    };
   });
 
   const xp = visits.reduce((s, v) => s + v.points, 0);
@@ -113,10 +151,10 @@ export function computeAchievements(visits: ProfileVisit[], now = new Date()) {
   // Neighborhood "stamps": first visit in each one.
   const stampMap = new Map<string, { label: string; date: string; visits: number }>();
   for (const v of asc) {
-    const n = neighborhoodOf(v.place_name);
-    if (!n) continue;
-    const k = normalize(n);
-    const s = stampMap.get(k) ?? { label: n, date: visitDate(v).toISOString(), visits: 0 };
+    const nb = neighborhoodOf(v.place_name);
+    if (!nb) continue;
+    const k = normalize(nb);
+    const s = stampMap.get(k) ?? { label: nb, date: visitDate(v).toISOString(), visits: 0 };
     s.visits++;
     stampMap.set(k, s);
   }
@@ -133,8 +171,7 @@ export function computeAchievements(visits: ProfileVisit[], now = new Date()) {
     if (idx >= 0 && idx < 12) weeks[idx]++;
   }
   let streak = 0;
-  // A streak stays alive during the current week even before its first visit.
-  let cursor = activeWeeks.has(thisWeek) ? thisWeek : thisWeek - WEEK_MS;
+  let cursor = activeWeeks.has(thisWeek) ? thisWeek : thisWeek - WEEK_MS; // alive during the current week
   while (activeWeeks.has(cursor)) {
     streak++;
     cursor -= WEEK_MS;
@@ -153,12 +190,18 @@ export function computeAchievements(visits: ProfileVisit[], now = new Date()) {
       };
     });
 
-  const unlocked = badges.filter((b) => b.unlocked);
-  const latest = [...unlocked].sort((a, b) => (b.unlockedAt ?? "").localeCompare(a.unlockedAt ?? ""))[0] ?? null;
+  // Most recent tier unlocked, and the tier closest to being reached.
+  let latest: { badge: BadgeState; tier: Tier; date: string } | null = null;
+  for (const b of badges) {
+    for (const t of TIER_ORDER) {
+      const d = b.unlockedAt[t];
+      if (d && (!latest || d > latest.date || (d === latest.date && tierIndex(t) > tierIndex(latest.tier)))) latest = { badge: b, tier: t, date: d };
+    }
+  }
   const next =
     badges
-      .filter((b) => !b.unlocked)
-      .sort((a, b) => b.progress / b.goal - a.progress / a.goal || RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity))[0] ?? null;
+      .filter((b) => b.next)
+      .sort((a, b) => b.count / b.next!.goal - a.count / a.next!.goal || tierIndex(a.tier) - tierIndex(b.tier))[0] ?? null;
 
   return {
     xp,
@@ -176,6 +219,8 @@ export function computeAchievements(visits: ProfileVisit[], now = new Date()) {
     streak,
     visitedThisWeek: activeWeeks.has(thisWeek),
     badges,
+    levelsUnlocked: badges.reduce((s, b) => s + tierIndex(b.tier) + 1, 0),
+    levelsTotal: badges.length * 3,
     latest,
     next,
     history,

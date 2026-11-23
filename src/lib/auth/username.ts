@@ -1,7 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { getCollections } from "@/lib/db/mongo";
-import { USERNAME_RE } from "./account";
+import { RESERVED_USERNAMES, USERNAME_RE } from "./account";
 
 /** "Maria José Silva" / "maria.jose@x.com" → "maria_jose_silva" (a–z, 0–9, _). */
 export function slugUsername(source: string): string {
@@ -22,7 +22,7 @@ export async function uniqueUsername(name: string, email: string): Promise<strin
   const base = slugUsername(name || email);
   const candidates = [base, ...Array.from({ length: 6 }, () => `${base.slice(0, 24)}_${randomInt(10, 9999)}`)];
   for (const c of candidates) {
-    if (USERNAME_RE.test(c) && !(await users.findOne({ username: c }, { projection: { _id: 1 } }))) return c;
+    if (USERNAME_RE.test(c) && !RESERVED_USERNAMES.has(c) && !(await users.findOne({ username: c }, { projection: { _id: 1 } }))) return c;
   }
   return `viajante_${randomInt(100000, 999999)}`;
 }

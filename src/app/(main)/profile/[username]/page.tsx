@@ -5,7 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { ImagePlus, Loader2, LogOut, Settings, Share2, X } from "lucide-react";
-import { computeAchievements, RARITY, RARITY_ORDER } from "@/lib/achievements";
+import { computeAchievements, tierIndex, TIER_STYLE } from "@/lib/achievements";
+import { BadgeCircle } from "@/components/achievements/BadgeMedal";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { FollowListDialog } from "@/components/profile/FollowListDialog";
 import { useAuthContext } from "@/components/providers/AuthProvider";
@@ -93,9 +94,8 @@ export default function ProfilePage() {
     const points = list.reduce((s, v) => s + v.points, 0);
     // Same badges as /conquistas, most valuable first.
     const badges = computeAchievements(list)
-      .badges.filter((b) => b.unlocked)
-      .sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
-      .map((b) => ({ label: b.name, icon: b.icon, bg: RARITY[b.rarity].bg, fg: RARITY[b.rarity].fg }));
+      .badges.filter((b) => b.tier)
+      .sort((a, b) => tierIndex(b.tier) - tierIndex(a.tier));
 
     return { places: places.size, byGroup, points, badges };
   }, [visits]);
@@ -355,15 +355,14 @@ export default function ProfilePage() {
                     )}
                   </div>
                   {stats.badges.length ? (
-                    <ul className="flex flex-wrap gap-2">
-                      {stats.badges.map((b) => (
-                        <li
-                          key={b.label}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold"
-                          style={{ background: b.bg, color: b.fg }}
-                        >
-                          <b.icon size={14} strokeWidth={2.2} aria-hidden="true" />
-                          {b.label}
+                    <ul className="grid grid-cols-3 gap-x-2 gap-y-3">
+                      {stats.badges.slice(0, 6).map((b) => (
+                        <li key={b.id} className="flex flex-col items-center gap-1 text-center">
+                          <BadgeCircle id={b.id} tier={b.tier} size={52} />
+                          <span className="text-[11px] font-bold leading-[14px]">{b.name}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: TIER_STYLE[b.tier!].ink }}>
+                            {TIER_STYLE[b.tier!].label}
+                          </span>
                         </li>
                       ))}
                     </ul>

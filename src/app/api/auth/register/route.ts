@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 import { getCollections, isDuplicateKey } from "@/lib/db/mongo";
 import { setSessionCookie } from "@/lib/auth/session";
-import { EMAIL_RE, USERNAME_RE, ownProfile } from "@/lib/auth/account";
+import { EMAIL_RE, RESERVED_USERNAMES, USERNAME_RE, ownProfile } from "@/lib/auth/account";
 import { uniqueUsername } from "@/lib/auth/username";
 import { passwordPolicyError } from "@/lib/password";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -29,6 +29,9 @@ async function handlePOST(request: NextRequest) {
   }
   if (!EMAIL_RE.test(email) || email.length > 254) {
     return NextResponse.json({ error: "Informe um e-mail válido.", field: "email" }, { status: 400 });
+  }
+  if (requested && RESERVED_USERNAMES.has(requested)) {
+    return NextResponse.json({ error: "Este usuário não está disponível. Escolha outro.", field: "username" }, { status: 400 });
   }
   if (requested && !USERNAME_RE.test(requested)) {
     return NextResponse.json({ error: "Usuário: 3 a 30 caracteres, só letras minúsculas, números e _.", field: "username" }, { status: 400 });

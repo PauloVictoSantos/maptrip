@@ -1,33 +1,18 @@
-import { MapPin } from "lucide-react";
 import Link from "next/link";
+import { BrandLockup, BrandMark } from "./BrandMark";
 
 type LogoProps = {
   size?: "sm" | "md" | "lg";
   showText?: boolean;
 };
 
-export function Logo({ size = "md", showText = true }: LogoProps) {
-  const iconSizes = { sm: 20, md: 24, lg: 32 };
-  const textSizes = { sm: "text-lg", md: "text-xl", lg: "text-3xl" };
+const SYMBOL_PX = { sm: 24, md: 30, lg: 40 };
 
+/** Brand logo linking home (horizontal lockup, or the symbol alone). */
+export function Logo({ size = "md", showText = true }: LogoProps) {
   return (
-    <Link href="/feed" className="flex items-center gap-2 group">
-      <div className="relative">
-        <div className="gradient-brand rounded-xl p-1.5 shadow-sm transition-transform duration-200 group-hover:scale-105">
-          <MapPin
-            size={iconSizes[size]}
-            className="text-white"
-            strokeWidth={2.5}
-          />
-        </div>
-      </div>
-      {showText && (
-        <span
-          className={`${textSizes[size]} font-extrabold tracking-tight text-gray-900`}
-        >
-          Map<span className="text-gradient">Trip</span>
-        </span>
-      )}
+    <Link href="/feed" aria-label="MapTrip, início" className="flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mt-teal">
+      {showText ? <BrandLockup size={SYMBOL_PX[size]} /> : <BrandMark size={SYMBOL_PX[size]} />}
     </Link>
   );
 }

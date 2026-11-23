@@ -2,6 +2,8 @@ import "server-only";
 import type { UserDoc } from "@/lib/db/types";
 
 export const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
+/** Usernames that would collide with routes under /api/users/* or app pages. */
+export const RESERVED_USERNAMES = new Set(["me", "search", "follows", "visits", "admin", "api", "maptrip", "suporte", "configuracoes"]);
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const MIN_PASSWORD = 8;
 

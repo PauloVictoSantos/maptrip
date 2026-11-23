@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Award,
   BedDouble,
@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { VisitCard } from "@/components/feed/VisitCard";
+import { PeopleSearch } from "@/components/search/PeopleSearch";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 import { CATEGORY_GROUPS, formatRatingBR, groupFor } from "@/components/map/categories";
@@ -116,14 +117,12 @@ function formatKm(km: number) {
 export default function FeedPage() {
   const { profile, user, loading: authLoading } = useAuthContext();
   const pathname = usePathname();
-  const router = useRouter();
   const city = useCityCenter(profile?.city, !authLoading);
   const cityName = profile?.city?.split(",")[0].trim() || "";
   const near = city.center ? `${city.center.lat.toFixed(4)},${city.center.lng.toFixed(4)}` : null;
 
   const [tab, setTab] = useState<FeedTab>("friends");
   const [filter, setFilter] = useState<FeedFilterId>("todos");
-  const [query, setQuery] = useState("");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -209,11 +208,6 @@ export default function FeedPage() {
       .catch(() => undefined);
   }, [user?.id, city.status, near]);
 
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = query.trim();
-    router.push(q ? `/buscar?q=${encodeURIComponent(q)}` : "/buscar");
-  }
 
   // ---- Actions -----------------------------------------------------------
   function toggleLikeLocal(id: string) {
@@ -331,21 +325,10 @@ export default function FeedPage() {
           {/* Page header */}
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-[22px] font-extrabold tracking-[-0.3px]">Início</h1>
-            <form role="search" onSubmit={submitSearch} className="relative min-w-[200px] flex-1">
-              <label htmlFor="feed-search" className="sr-only">
-                Buscar lugares
-              </label>
-              <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mt-muted" />
-              <input
-                id="feed-search"
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={cityName ? `Buscar lugares em ${cityName}` : "Buscar lugares e cidades"}
-                maxLength={120}
-                className="h-11 w-full rounded-full border-[1.5px] border-mt-line bg-white pl-10 pr-4 text-[15px] placeholder:text-mt-muted focus:border-mt-teal focus:outline-none"
-              />
-            </form>
+            <PeopleSearch
+              className="min-w-[200px] flex-1"
+              placeholder={cityName ? `Buscar pessoas ou lugares em ${cityName}` : "Buscar pessoas (nome, @usuário ou ID) ou lugares"}
+            />
           </div>
 
           {/* Composer */}
