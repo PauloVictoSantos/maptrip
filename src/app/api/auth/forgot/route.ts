@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import { createHash, randomBytes } from "node:crypto";
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db/mongo";
@@ -10,7 +11,7 @@ const RESET_TTL_MIN = 60;
 
 // POST /api/auth/forgot { email }
 // Always answers the same way, so it can't be used to find out who has an account.
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   if (!EMAIL_RE.test(email) || email.length > 254) {
@@ -53,3 +54,5 @@ export async function POST(request: NextRequest) {
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]!);
 }
+
+export const POST = withErrors(handlePOST);

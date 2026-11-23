@@ -9,7 +9,6 @@ import {
   BedDouble,
   Compass,
   Luggage,
-  Settings,
   Trophy,
   Bookmark,
   Camera,
@@ -272,7 +271,6 @@ export default function FeedPage() {
     { href: "/conquistas", label: "Conquistas", icon: Award },
     { href: "/ranking", label: "Ranking", icon: Trophy },
     ...(profile ? [{ href: `/profile/${profile.username}`, label: "Perfil", icon: User }] : []),
-    { href: "/configuracoes", label: "Configurações", icon: Settings },
   ];
 
   return (

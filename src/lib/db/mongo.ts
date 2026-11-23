@@ -55,6 +55,9 @@ async function ensureIndexes(db: Db) {
     db.collection("follows").createIndexes([
       { key: { follower_id: 1, following_id: 1 }, unique: true },
       { key: { following_id: 1 } },
+      // Paginated follower / following lists (newest first, _id cursor).
+      { key: { following_id: 1, _id: -1 } },
+      { key: { follower_id: 1, _id: -1 } },
     ]),
     db.collection("places").createIndexes([{ key: { location: "2dsphere" } }, { key: { name: 1 } }]),
     db.collection("place_status").createIndexes([

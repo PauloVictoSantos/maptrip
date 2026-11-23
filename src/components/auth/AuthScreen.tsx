@@ -28,6 +28,29 @@ function safeNext(): string {
   return raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/feed";
 }
 
+/**
+ * Reads a JSON response without crashing on empty or HTML bodies (e.g. a proxy error page),
+ * and always returns a readable error message for failed requests.
+ */
+export async function readApi(res: Response): Promise<{ ok: boolean; data: Record<string, any>; error: string }> {
+  let data: Record<string, any> = {};
+  try {
+    data = await res.json();
+  } catch {
+    /* empty or non-JSON body */
+  }
+  if (res.ok) return { ok: true, data, error: "" };
+  const error =
+    typeof data.error === "string" && data.error
+      ? data.error
+      : res.status >= 500
+      ? `O servidor encontrou um erro (${res.status}). Tente de novo em instantes.`
+      : `Não foi possível concluir (erro ${res.status}).`;
+  return { ok: false, data, error };
+}
+
+export const OFFLINE = "Não foi possível falar com o servidor. Verifique sua internet e tente de novo.";
+
 function emailError(value: string): string {
   if (!value.trim()) return "Informe seu e-mail.";
   return EMAIL_PATTERN.test(value.trim()) ? "" : "Digite um e-mail válido, como nome@exemplo.com.";
@@ -232,12 +255,16 @@ function LoginForm({ email, setEmail, go, headingRef }: FormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password, remember }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Não foi possível entrar.");
+      const { ok, error } = await readApi(res);
+      if (!ok) {
+        setFormError(error);
+        setLoading(false);
+        return;
+      }
       router.replace(safeNext());
       router.refresh();
-    } catch (err) {
-      setFormError((err as Error).message);
+    } catch {
+      setFormError(OFFLINE);
       setLoading(false);
     }
   }
@@ -332,17 +359,17 @@ function RegisterForm({ email, setEmail, go, headingRef }: FormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.field && ["name", "email", "password"].includes(data.field)) setServerErrors({ [data.field]: data.error });
-        else setFormError(data.error || "Não foi possível criar a conta.");
+      const { ok, data, error } = await readApi(res);
+      if (!ok) {
+        if (data.field && ["name", "email", "password"].includes(data.field)) setServerErrors({ [data.field]: error });
+        else setFormError(error);
         setLoading(false);
         return;
       }
       router.replace(safeNext());
       router.refresh();
     } catch {
-      setFormError("Sem conexão. Tente de novo.");
+      setFormError(OFFLINE);
       setLoading(false);
     }
   }
@@ -456,11 +483,11 @@ function ResetRequestForm({ email, setEmail, go, headingRef }: FormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Não foi possível enviar o link.");
-      setSentTo(email.trim());
-    } catch (e2) {
-      setFormError((e2 as Error).message);
+      const { ok, error } = await readApi(res);
+      if (ok) setSentTo(email.trim());
+      else setFormError(error);
+    } catch {
+      setFormError(OFFLINE);
     } finally {
       setLoading(false);
     }

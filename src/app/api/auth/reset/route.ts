@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getCollections } from "@/lib/db/mongo";
@@ -8,7 +9,7 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 const INVALID = { error: "Este link é inválido ou expirou. Peça um novo em “Esqueci minha senha”." };
 
 // POST /api/auth/reset { token, password } — sets a new password with a one-time link
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   if (!rateLimit(`reset:${clientIp(request.headers)}`, 20, 60 * 60 * 1000)) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
   }
@@ -34,3 +35,5 @@ export async function POST(request: NextRequest) {
   if (!result.matchedCount) return NextResponse.json(INVALID, { status: 400 });
   return NextResponse.json({ success: true });
 }
+
+export const POST = withErrors(handlePOST);

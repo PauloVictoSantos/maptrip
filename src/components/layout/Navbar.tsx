@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Award, Home, Map, PlusCircle, LogOut, Search, Settings, Luggage } from "lucide-react";
+import { Award, Home, Luggage, Map, PlusCircle, Search, type LucideIcon } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 
+// Settings and "Sair" are on the user's own profile page, not in the bars.
 const navItems = [
   { href: "/feed", label: "Início", icon: Home },
   { href: "/map", label: "Mapa", icon: Map },
@@ -16,9 +17,28 @@ const navItems = [
   { href: "/post/new", label: "Novo Post", icon: PlusCircle },
 ];
 
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function MobileItem({ href, label, icon: Icon, active }: { href: string; label: string; icon: LucideIcon; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px] font-medium transition-all ${
+        active ? "text-brand-600" : "text-gray-400 hover:text-gray-600"
+      }`}
+    >
+      <Icon size={22} aria-hidden="true" />
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 export function Navbar() {
   const pathname = usePathname();
-  const { profile, loading, signOut } = useAuthContext();
+  const { profile, loading } = useAuthContext();
 
   return (
     <>
@@ -29,15 +49,14 @@ export function Navbar() {
 
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active = isActive(pathname, item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-brand-50 text-brand-700"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    active ? "bg-brand-50 text-brand-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
                   <item.icon size={18} />
@@ -47,106 +66,46 @@ export function Navbar() {
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
-            {!loading && profile && (
-              <Link
-                href={`/profile/${profile.username}`}
-                className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors hover:bg-gray-50"
-              >
-                <Avatar
-                  src={profile.avatar_url}
-                  name={profile.display_name || profile.username}
-                  size="sm"
-                />
-                <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
-                  {profile.display_name || profile.username}
-                </span>
-              </Link>
-            )}
-            <Link href="/configuracoes" className="btn-icon" title="Configurações" aria-label="Configurações">
-              <Settings size={18} />
+          {!loading && profile && (
+            <Link
+              href={`/profile/${profile.username}`}
+              className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors hover:bg-gray-50"
+            >
+              <Avatar src={profile.avatar_url} name={profile.display_name || profile.username} size="sm" />
+              <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">{profile.display_name || profile.username}</span>
             </Link>
-            <button onClick={signOut} className="btn-icon" title="Sair" aria-label="Sair">
-              <LogOut size={18} />
-            </button>
-          </div>
+          )}
         </div>
       </header>
 
       {/* Mobile bottom navbar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-gray-100 bg-white/90 backdrop-blur-xl safe-area-bottom">
-        <div className="flex items-center justify-around py-2 px-2">
-          <Link
-            href="/feed"
-            className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all ${
-              pathname === "/feed"
-                ? "text-brand-600"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Home size={22} />
-            <span>Início</span>
-          </Link>
-
-          <Link
-            href="/map"
-            className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all ${
-              pathname === "/map"
-                ? "text-brand-600"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Map size={22} />
-            <span>Mapa</span>
-          </Link>
+      <nav aria-label="Navegação principal" className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-gray-100 bg-white/90 backdrop-blur-xl safe-area-bottom">
+        <div className="flex items-center justify-around px-1 py-2">
+          <MobileItem href="/feed" label="Início" icon={Home} active={isActive(pathname, "/feed")} />
+          <MobileItem href="/map" label="Mapa" icon={Map} active={isActive(pathname, "/map")} />
 
           {/* Floating center button */}
-          <Link
-            href="/post/new"
-            className="flex flex-col items-center -mt-4"
-          >
+          <Link href="/post/new" aria-label="Registrar visita" className="-mt-4 flex flex-1 flex-col items-center">
             <div className="gradient-brand rounded-full p-2.5 shadow-md">
-              <PlusCircle size={22} className="text-white" />
+              <PlusCircle size={22} className="text-white" aria-hidden="true" />
             </div>
           </Link>
 
-          <Link
-            href="/buscar"
-            className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all ${
-              pathname === "/buscar"
-                ? "text-brand-600"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Search size={22} />
-            <span>Buscar</span>
-          </Link>
+          <MobileItem href="/viagens" label="Viagens" icon={Luggage} active={isActive(pathname, "/viagens")} />
+          <MobileItem href="/buscar" label="Buscar" icon={Search} active={isActive(pathname, "/buscar")} />
 
           {profile && (
             <Link
               href={`/profile/${profile.username}`}
-              className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all ${
-                pathname.includes("/profile")
-                  ? "text-brand-600"
-                  : "text-gray-400"
+              aria-current={pathname === `/profile/${profile.username}` ? "page" : undefined}
+              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px] font-medium transition-all ${
+                pathname.startsWith("/profile") || pathname === "/configuracoes" ? "text-brand-600" : "text-gray-400"
               }`}
             >
-              <Avatar
-                src={profile.avatar_url}
-                name={profile.display_name || profile.username}
-                size="sm"
-              />
+              <Avatar src={profile.avatar_url} name={profile.display_name || profile.username} size="sm" />
               <span>Perfil</span>
             </Link>
           )}
-
-          <button
-            onClick={signOut}
-            className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-all"
-          >
-            <LogOut size={22} />
-            <span>Sair</span>
-          </button>
         </div>
       </nav>
     </>

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import { getCollections } from "@/lib/db/mongo";
 import { clearSessionCookie, getViewerId } from "@/lib/auth/session";
 import { ownProfile } from "@/lib/auth/account";
 
 // GET /api/auth/me — current session
-export async function GET() {
+async function handleGET() {
   const viewer = await getViewerId();
   if (!viewer) return NextResponse.json({ user: null, profile: null });
 
@@ -18,3 +19,5 @@ export async function GET() {
   }
   return NextResponse.json({ user: { id: user._id.toHexString(), email: user.email }, profile: ownProfile(user) });
 }
+
+export const GET = withErrors(handleGET);

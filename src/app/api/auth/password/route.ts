@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import bcrypt from "bcryptjs";
 import { getCollections } from "@/lib/db/mongo";
 import { getViewerId } from "@/lib/auth/session";
@@ -6,7 +7,7 @@ import { passwordPolicyError } from "@/lib/password";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 // POST /api/auth/password { current_password, new_password }
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const viewer = await getViewerId();
   if (!viewer) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   if (!rateLimit(`password:${viewer.toHexString()}:${clientIp(request.headers)}`, 5, 15 * 60 * 1000)) {
@@ -32,3 +33,5 @@ export async function POST(request: NextRequest) {
   await users.updateOne({ _id: viewer }, { $set: { password_hash: await bcrypt.hash(new_password, 12), updated_at: new Date() } });
   return NextResponse.json({ success: true });
 }
+
+export const POST = withErrors(handlePOST);

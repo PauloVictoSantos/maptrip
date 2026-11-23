@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import bcrypt from "bcryptjs";
 import { getCollections } from "@/lib/db/mongo";
 import { setSessionCookie } from "@/lib/auth/session";
@@ -9,7 +10,7 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 const DUMMY_HASH = bcrypt.hashSync("maptrip-dummy-password", 12);
 
 // POST /api/auth/login { email, password, remember? }
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
@@ -35,3 +36,5 @@ export async function POST(request: NextRequest) {
   await setSessionCookie(res, user._id.toHexString(), remember);
   return res;
 }
+
+export const POST = withErrors(handlePOST);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/lib/api";
 import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 import { getCollections, isDuplicateKey } from "@/lib/db/mongo";
@@ -11,7 +12,7 @@ import type { UserDoc } from "@/lib/db/types";
 
 // POST /api/auth/register { name, email, password, username?, city? }
 // The @username is generated from the name when not given.
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   if (!rateLimit(`register:${clientIp(request.headers)}`, 10, 60 * 60 * 1000)) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde um pouco e tente novamente." }, { status: 429 });
   }
@@ -69,3 +70,5 @@ export async function POST(request: NextRequest) {
   await setSessionCookie(res, doc._id.toHexString(), true);
   return res;
 }
+
+export const POST = withErrors(handlePOST);

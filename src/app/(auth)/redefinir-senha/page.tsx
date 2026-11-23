@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, Lock } from "lucide-react";
-import { HeroPanel } from "@/components/auth/AuthScreen";
+import { HeroPanel, OFFLINE, readApi } from "@/components/auth/AuthScreen";
 import { AuthField } from "@/components/auth/AuthField";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { passwordStrength } from "@/lib/password";
@@ -42,11 +42,11 @@ export default function ResetPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Não foi possível salvar a nova senha.");
-      setDone(true);
-    } catch (err) {
-      setError((err as Error).message);
+      const { ok, error: message } = await readApi(res);
+      if (ok) setDone(true);
+      else setError(message);
+    } catch {
+      setError(OFFLINE);
     } finally {
       setLoading(false);
     }

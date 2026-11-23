@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { ImagePlus, Loader2, Share2, X } from "lucide-react";
+import { ImagePlus, Loader2, LogOut, Settings, Share2, X } from "lucide-react";
 import { computeAchievements, RARITY, RARITY_ORDER } from "@/lib/achievements";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuthContext } from "@/components/providers/AuthProvider";
@@ -46,7 +46,7 @@ function shortDate(v: ProfileVisit) {
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
-  const { refresh: refreshSession } = useAuthContext();
+  const { refresh: refreshSession, signOut } = useAuthContext();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [visits, setVisits] = useState<ProfileVisit[] | null>(null);
   const [error, setError] = useState("");
@@ -176,14 +176,31 @@ export default function ProfilePage() {
                 [stats.places, "Lugares"],
                 [profile.followers_count, "Seguidores"],
                 [profile.following_count, "Seguindo"],
-              ].map(([n, label]) => (
-                <div key={label} className="flex flex-col-reverse">
-                  <dt className="text-[13px] font-semibold text-mt-muted">{label}</dt>
-                  <dd className="text-[22px] font-extrabold">{n}</dd>
-                </div>
-              ))}
+              ].map(([n, label]) => {
+                const list = label === "Seguidores" ? "seguidores" : label === "Seguindo" ? "seguindo" : null;
+                return (
+                  <div key={label} className="flex flex-col-reverse">
+                    <dt className="text-[13px] font-semibold text-mt-muted">{label}</dt>
+                    <dd className="text-[22px] font-extrabold">
+                      {list ? (
+                        // Followers / following open the list of people.
+                        <button
+                          type="button"
+                          onClick={() => setFollowList(list)}
+                          aria-label={`Ver ${label.toLowerCase()} (${n})`}
+                          className="rounded-lg hover:text-mt-teal-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mt-teal"
+                        >
+                          {n}
+                        </button>
+                      ) : (
+                        n
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {profile.is_own_profile ? (
                 <button
                   type="button"
@@ -219,6 +236,27 @@ export default function ProfilePage() {
               >
                 <Share2 size={20} />
               </button>
+              {/* Settings and sign-out live here (not in the nav bars). */}
+              {profile.is_own_profile && (
+                <>
+                  <Link
+                    href="/configuracoes"
+                    aria-label="Configurações"
+                    title="Configurações"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border-[1.5px] border-mt-line-strong hover:bg-mt-chip"
+                  >
+                    <Settings size={20} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    className="flex h-11 items-center gap-2 rounded-xl border-[1.5px] border-mt-line-strong px-3.5 text-sm font-bold text-[#B42323] hover:bg-[#FBEAE8]"
+                  >
+                    <LogOut size={18} aria-hidden="true" />
+                    Sair
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="mt-5">
